@@ -10,23 +10,23 @@ graph TD
         subgraph VPC[" "]
             direction LR
             subgraph SLI["SLI Subnet — Inside"]
-                VM["Test VM\n(optional)"]
+                VM["Test VM<br/>(optional)"]
                 ETH1["eth1"]
             end
-            CE["CE\n(EC2 m5.2xlarge)"]
+            CE["CE<br/>(EC2 m5.2xlarge)"]
             subgraph SLO["SLO Subnet — Outside"]
                 ETH0["eth0 + EIP"]
             end
         end
     end
 
-    VM -. "routes via\nCE SLI" .-> ETH1
+    VM -. "routes via CE SLI" .-> ETH1
     ETH1 --- CE
     CE --- ETH0
 
     ETH0 -- "IPsec Tunnel" --> XC["F5 XC Global Network"]
     ETH0 -- "SSL Tunnel" --> XC
-    ETH0 -. "CE-to-CE IPsec" .-> SMG["Site Mesh Group\n(other CEs)"]
+    ETH0 -. "CE-to-CE IPsec" .-> SMG["Site Mesh Group<br/>(other CEs)"]
 ```
 
 ## Prerequisites
