@@ -232,6 +232,11 @@ resource "aws_instance" "ce" {
 
   tags = merge(local.common_tags, { Name = local.prefix })
 
+  # source_dest_check is managed per-ENI, not at instance level with multi-NIC
+  lifecycle {
+    ignore_changes = [source_dest_check]
+  }
+
   depends_on = [
     aws_eip_association.slo,
   ]
