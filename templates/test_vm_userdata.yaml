@@ -1,0 +1,5 @@
+#cloud-config
+runcmd:
+%{ for cidr in remote_cidrs ~}
+  - ip route add ${cidr} via ${ce_sli_ip}
+%{ endfor ~}

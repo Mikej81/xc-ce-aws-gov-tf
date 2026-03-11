@@ -1,0 +1,41 @@
+# F5 XC SMSv2 CE — AWS GovCloud
+
+# -- F5 XC API --
+f5xc_api_url      = "https://<tenant>.console.f5xc.f5gov.io/api"
+f5xc_api_p12_file = "./creds/<tenant>.console.f5xc.f5gov.io.api-creds.p12"
+
+# -- AWS GovCloud --
+aws_region    = "us-gov-west-1"
+aws_profile   = "f5xc-aws-govcloud"
+vpc_id        = "vpc-0123456789abcdef0"
+outside_subnet_id = "subnet-0aaa..."   # SLO — needs outbound internet
+inside_subnet_id  = "subnet-0bbb..."   # SLI — LAN/workload traffic
+
+# -- CE Image (choose ONE approach) --
+# Option 1: Direct AMI ID
+# ami_id = "ami-0123456789abcdef0"
+# Option 2: Import from F5 XC Console download URL
+# ce_image_download_url = "https://vesio.blob.core.windows.net/releases/rhel/9/x86_64/images/securemeshV2/aws/f5xc-ce-<version>.raw.gz"
+# s3_bucket_name        = "my-ce-image-staging"
+
+# -- Site --
+site_name = "my-awsgov-ce"
+
+# -- EC2 --
+instance_type = "m5.2xlarge"
+disk_size_gb  = 128
+ssh_public_key = "ssh-rsa AAAAB3..."
+
+# -- Networking --
+create_eip = true
+
+# -- Test VM (optional) --
+# deploy_test_vm       = true
+# test_vm_remote_cidrs = ["192.168.2.0/24", "10.0.2.0/24"]
+
+# -- Tags --
+tags = {
+  environment = "dev"
+  owner       = "your-name"
+  project     = "xc-ce-aws-gov"
+}
