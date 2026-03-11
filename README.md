@@ -5,25 +5,26 @@ Deploy an [F5 Distributed Cloud](https://docs.cloud.f5.com/) Secure Mesh Site v2
 ## Architecture
 
 ```mermaid
-graph TB
+graph LR
     subgraph AWS["AWS GovCloud (us-gov-west-1)"]
         subgraph VPC["VPC"]
+            subgraph SLI["SLI Subnet (Inside)"]
+                VM["Test VM (optional)"]
+                ETH1["eth1"]
+            end
+            CE["CE (EC2)"]
             subgraph SLO["SLO Subnet (Outside)"]
                 ETH0["eth0 + EIP"]
             end
-            subgraph SLI["SLI Subnet (Inside)"]
-                ETH1["eth1"]
-                VM["Test VM (optional)"]
-            end
-            CE["CE (EC2)"]
-            ETH0 --- CE
-            CE --- ETH1
             VM -. "routes via CE SLI" .-> ETH1
+            ETH1 --- CE
+            CE --- ETH0
         end
     end
-    CE -- "IPsec Tunnel" --> XC["F5 XC Global Network"]
-    CE -- "SSL Tunnel" --> XC
-    CE -. "CE-to-CE IPsec" .-> SMG["Site Mesh Group\n(other CEs)"]
+
+    ETH0 -- "IPsec Tunnel" --> XC["F5 XC Global Network"]
+    ETH0 -- "SSL Tunnel" --> XC
+    ETH0 -. "CE-to-CE IPsec" .-> SMG["Site Mesh Group\n(other CEs)"]
 ```
 
 ## Prerequisites
