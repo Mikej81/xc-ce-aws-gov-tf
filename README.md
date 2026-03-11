@@ -4,25 +4,24 @@ Deploy an [F5 Distributed Cloud](https://docs.cloud.f5.com/) Secure Mesh Site v2
 
 ## Architecture
 
-```
-+----------------------------------------------------------+
-|  AWS GovCloud (us-gov-west-1)                            |
-|                                                          |
-|  +----------------------------------------------------+  |
-|  |  VPC                                               |  |
-|  |                                                    |  |
-|  |  +--------------+        +--------------+          |  |
-|  |  |  SLO Subnet  |        |  SLI Subnet  |          |  |
-|  |  |  (Outside)   |        |  (Inside)    |          |  |
-|  |  |   eth0  -----+--------+---- eth1     |          |  |
-|  |  |   + EIP      |   CE   |              |          |  |
-|  |  +--------------+ (EC2)  +--------------+          |  |
-|  +--------------------+---------------------------+---+  |
-|                       |                               |  |
-+-----------------------+-------------------------------+--+
-                        | IPsec / SSL
-                        v
-              F5 XC Global Network
+```mermaid
+graph TB
+    subgraph AWS["AWS GovCloud (us-gov-west-1)"]
+        subgraph VPC["VPC"]
+            subgraph SLO["SLO Subnet (Outside)"]
+                ETH0["eth0 + EIP"]
+            end
+            subgraph SLI["SLI Subnet (Inside)"]
+                ETH1["eth1"]
+                VM["Test VM (optional)"]
+            end
+            CE["CE (EC2)"]
+            ETH0 --- CE
+            CE --- ETH1
+            VM -. "routes via CE SLI" .-> ETH1
+        end
+    end
+    CE -- "IPsec / SSL" --> XC["F5 XC Global Network"]
 ```
 
 ## Prerequisites
@@ -224,6 +223,16 @@ The URL points to a versioned VHD image (e.g. `f5xc-ce-9.2025.10-20250116213509.
 ```
 
 ## How It Works
+
+```mermaid
+flowchart LR
+    A["ami_import\n(optional)"] -->|AMI ID| B["aws_instance.ce\n+ SLO ENI (eth0)"]
+    C["volterra_securemesh_site_v2"] --> D["volterra_token\n(JWT)"]
+    D -->|cloud-init| B
+    B --> E["SLI ENI (eth1)\nattached post-boot"]
+    B --> F["CE boots\nFIPS reboot\nVPM registers"]
+    F --> G["F5 XC\nControl Plane"]
+```
 
 1. **`terraform_data.ami_import`** (optional) -- Downloads the CE image from the F5 XC repo, decompresses it, uploads to S3, and runs `ec2 import-image`. Skips entirely if `ami_id` is set or if the AMI already exists. Creates the `vmimport` IAM service role if needed.
 2. **`aws_instance.ce`** -- Launches the CE with the primary ENI (SLO/eth0) attached at boot. The SLI ENI (eth1) is attached post-boot via `aws_network_interface_attachment`.
