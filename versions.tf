@@ -18,13 +18,3 @@ terraform {
     }
   }
 }
-
-provider "aws" {
-  region  = var.aws_region
-  profile = var.aws_profile
-}
-
-provider "volterra" {
-  api_p12_file = var.f5xc_api_p12_file
-  url          = var.f5xc_api_url
-}

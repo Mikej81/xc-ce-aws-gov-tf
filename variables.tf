@@ -60,8 +60,8 @@ variable "ami_id" {
 
 variable "ce_image_download_url" {
   type        = string
-  description = "F5 XC CE image download URL from Console (raw disk format). Used only when ami_id is null."
-  default     = null
+  description = "F5 XC CE image download URL from Console. Used only when ami_id is null."
+  default     = "https://vesio.blob.core.windows.net/releases/rhel/9/x86_64/images/securemeshV2/azure/f5xc-ce-9.2024.44-20250102054713.vhd.gz"
 }
 
 variable "s3_bucket_name" {
@@ -130,6 +130,18 @@ variable "enable_site_mesh_group" {
   type        = bool
   description = "Enable site mesh group on SLO for site-to-site connectivity. Post-registration manual steps required — see README."
   default     = true
+}
+
+variable "site_mesh_label_key" {
+  type        = string
+  description = "Label key used by the core MCN virtual site selector to include this CE in a mesh group"
+  default     = "site-mesh"
+}
+
+variable "site_mesh_label_value" {
+  type        = string
+  description = "Label value for mesh group membership (must match the core MCN virtual site selector)"
+  default     = "global-network-mesh"
 }
 
 # -----------------------------------------------------------------------------

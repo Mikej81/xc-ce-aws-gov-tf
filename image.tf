@@ -35,11 +35,23 @@ locals {
 }
 
 # ---------------------------------------------------------------------------
+# S3 bucket for staging CE image import (conditional)
+# ---------------------------------------------------------------------------
+
+resource "aws_s3_bucket" "ce_image_staging" {
+  count         = var.ce_image_download_url != null && var.ami_id == null ? 1 : 0
+  bucket        = var.s3_bucket_name
+  force_destroy = true
+  tags          = merge(local.common_tags, { Name = var.s3_bucket_name })
+}
+
+# ---------------------------------------------------------------------------
 # Import CE image from download URL (conditional)
 # ---------------------------------------------------------------------------
 
 resource "terraform_data" "ami_import" {
-  count = var.ce_image_download_url != null && var.ami_id == null ? 1 : 0
+  count      = var.ce_image_download_url != null && var.ami_id == null ? 1 : 0
+  depends_on = [aws_s3_bucket.ce_image_staging]
 
   triggers_replace = [var.ce_image_download_url]
 

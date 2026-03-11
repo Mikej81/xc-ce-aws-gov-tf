@@ -10,9 +10,10 @@ resource "volterra_securemesh_site_v2" "this" {
   block_all_services      = false
   logs_streaming_disabled = true
 
-  labels = {
-    "ves.io/provider" = "ves-io-AWS"
-  }
+  labels = merge(
+    { "ves.io/provider" = "ves-io-AWS" },
+    var.enable_site_mesh_group ? { (var.site_mesh_label_key) = var.site_mesh_label_value } : {}
+  )
 
   offline_survivability_mode {
     enable_offline_survivability_mode = true
