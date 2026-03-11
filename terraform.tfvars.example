@@ -6,7 +6,7 @@ f5xc_api_p12_file = "./creds/<tenant>.console.f5xc.f5gov.io.api-creds.p12"
 
 # -- AWS GovCloud --
 aws_region    = "us-gov-west-1"
-aws_profile   = "f5xc-aws-govcloud"
+aws_profile   = "my-govcloud-profile"   # your AWS CLI profile name, or null for default chain
 vpc_id        = "vpc-0123456789abcdef0"
 outside_subnet_id = "subnet-0aaa..."   # SLO — needs outbound internet
 inside_subnet_id  = "subnet-0bbb..."   # SLI — LAN/workload traffic

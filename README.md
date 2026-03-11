@@ -32,7 +32,7 @@ graph TD
 ## Prerequisites
 
 - **Terraform** >= 1.3
-- **AWS CLI** configured for GovCloud (`aws configure --profile f5xc-aws-govcloud`)
+- **AWS CLI** configured for GovCloud -- see [AWS GovCloud authentication](https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/govcloud-sign-in.html) and the [AWS provider docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration) for supported auth methods (profiles, env vars, SSO, instance roles, etc.)
 - **F5 XC tenant** with API credentials (.p12 file) -- password provided via `VES_P12_PASSWORD` env var
 - **Existing AWS resources**: VPC, two subnets (SLO with internet gateway route + SLI)
 - **CE AMI** -- either a known AMI ID or a download URL from the F5 XC Console (see Image Options below)
@@ -58,15 +58,20 @@ Recommended instance type: `m5.2xlarge` (8 vCPU, 32 GB RAM, ENA networking).
 
 ## Quick Start
 
-### 1. AWS GovCloud Login
+### 1. AWS GovCloud Authentication
+
+Configure AWS credentials using any method supported by the [AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration): CLI profile, environment variables, SSO, or instance role.
 
 ```bash
+# Option A: Use the included helper script (prompts for profile name)
 source ./scripts/setup-aws-gov.sh
+
+# Option B: Set credentials directly
+export AWS_PROFILE="your-govcloud-profile"
+export AWS_REGION="us-gov-west-1"
 ```
 
-This will verify your AWS CLI profile, confirm account access, and export `AWS_PROFILE` and `AWS_REGION` for Terraform.
-
-For SSO or static credential setup, see the script output.
+Set `aws_profile` in your `terraform.tfvars` to match your profile name, or leave it `null` to use the default credential chain.
 
 ### 2. Set the F5 XC P12 Password
 
