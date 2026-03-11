@@ -21,7 +21,9 @@ graph TB
             VM -. "routes via CE SLI" .-> ETH1
         end
     end
-    CE -- "IPsec / SSL" --> XC["F5 XC Global Network"]
+    CE -- "IPsec Tunnel" --> XC["F5 XC Global Network"]
+    CE -- "SSL Tunnel" --> XC
+    CE -. "CE-to-CE IPsec" .-> SMG["Site Mesh Group\n(other CEs)"]
 ```
 
 ## Prerequisites
