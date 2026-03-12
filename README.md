@@ -34,6 +34,7 @@ graph TD
 - **Terraform** >= 1.3
 - **AWS CLI** configured for GovCloud -- see [AWS GovCloud authentication](https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/govcloud-sign-in.html) and the [AWS provider docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration) for supported auth methods (profiles, env vars, SSO, instance roles, etc.)
 - **F5 XC tenant** with API credentials (.p12 file) -- password provided via `VES_P12_PASSWORD` env var
+- **F5 XC API token** (`f5xc_api_token`) -- optionally provided for Day-2 API calls (preferred over P12). The P12 file is still required by the Volterra Terraform provider.
 - **Existing AWS resources**: VPC, two subnets (SLO with internet gateway route + SLI)
 - **CE AMI** -- either a known AMI ID or a download URL from the F5 XC Console (see Image Options below)
 - **Local tools**: `curl`, `gunzip` (only needed if importing an image from URL)
@@ -100,17 +101,11 @@ Monitor progress in the F5 XC Console:
 
 > The registration token is valid for **24 hours**. If it expires, re-run `terraform apply` to generate a new one.
 
-### 5. Post-Registration: Site Mesh Group Setup
+### 5. Post-Registration: Automated Day-2 Configuration
 
-When `enable_site_mesh_group = true` (the default), the site is configured for site-to-site connectivity over the SLO public IP. After the CE registers, complete these manual steps in the F5 XC Console:
+When `enable_site_mesh_group = true` (the default), the public IP, segment interface assignment, and site-to-site connectivity are configured **automatically** by Day-2 provisioners that run during `terraform apply`. The provisioners wait for the site to come **ONLINE**, then use the F5 XC API to update the site object with the correct public IP on SLO, enable site-to-site connectivity, and (if `segment_name` is set) assign the network segment to the SLI interface. Authentication prefers `f5xc_api_token` if provided; otherwise it falls back to extracting credentials from the P12 file via `openssl pkcs12 -legacy`. No manual Console steps are needed.
 
-1. Navigate to **Multi-Cloud Network Connect > Manage > Site Management > Secure Mesh Sites v2**
-2. Select the site > **Edit** > **Node Information**
-3. Set the **Public IP** field to the SLO public IP address (`terraform output slo_public_ip`)
-4. On the SLO interface (eth0), enable **Use for Site to Site Connectivity**
-5. Save changes
-
-These node-level properties are populated by the CE during registration and cannot be managed declaratively via Terraform.
+> **Note:** You can monitor Day-2 progress in the F5 XC Console under **Multi-Cloud Network Connect > Overview > Sites**. The provisioners poll until the site reaches ONLINE status before applying changes.
 
 ### 6. SSH Access
 
@@ -174,6 +169,7 @@ The URL points to a versioned VHD image (e.g. `f5xc-ce-9.2025.10-20250116213509.
 |---|---|---|---|
 | `f5xc_api_url` | F5 XC tenant API URL | -- | **yes** |
 | `f5xc_api_p12_file` | Path to API .p12 credential file | -- | **yes** |
+| `f5xc_api_token` | F5 XC API token for Day-2 provisioners (preferred over P12) | `null` | no |
 | `aws_region` | AWS GovCloud region | `us-gov-west-1` | no |
 | `aws_profile` | AWS CLI profile name (null = default chain) | `null` | no |
 | `vpc_id` | Existing VPC ID | -- | **yes** |
@@ -189,6 +185,9 @@ The URL points to a versioned VHD image (e.g. `f5xc-ce-9.2025.10-20250116213509.
 | `ssh_public_key` | SSH public key for `cloud-user` access | -- | **yes** |
 | `enable_etcd_fix` | Temporary cloud-init fix for blank ETCD_IMAGE | `true` | no |
 | `enable_site_mesh_group` | Enable site mesh group on SLO for site-to-site connectivity | `true` | no |
+| `segment_name` | Network segment to assign to SLI interface after registration | `null` | no |
+| `site_mesh_label_key` | Label key for mesh group membership | `site-mesh` | no |
+| `site_mesh_label_value` | Label value for mesh group membership | `global-network-mesh` | no |
 | `slo_security_group_id` | Existing SG for SLO ENI (null = create new) | `null` | no |
 | `sli_security_group_id` | Existing SG for SLI ENI (null = create new) | `null` | no |
 | `slo_private_ip` | Static SLO IP (null = DHCP) | `null` | no |
@@ -242,6 +241,7 @@ flowchart LR
     B --> E["SLI ENI (eth1)\nattached post-boot"]
     B --> F["CE boots\nFIPS reboot\nVPM registers"]
     F --> G["F5 XC\nControl Plane"]
+    G --> H["Day-2 provisioners:\nset public IP,\nconfigure segment"]
 ```
 
 1. **`terraform_data.ami_import`** (optional) -- Downloads the CE image from the F5 XC repo, decompresses it, uploads to S3, and runs `ec2 import-image`. Skips entirely if `ami_id` is set or if the AMI already exists. Creates the `vmimport` IAM service role if needed.
