@@ -25,7 +25,7 @@ resource "aws_security_group" "test_vm" {
   count       = var.deploy_test_vm ? 1 : 0
   name        = "${local.prefix}-sg-test-vm"
   description = "Test VM - ICMP and SSH inbound, all outbound"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   ingress {
     description = "SSH"
@@ -56,7 +56,7 @@ resource "aws_security_group" "test_vm" {
 
 resource "aws_network_interface" "test_vm" {
   count             = var.deploy_test_vm ? 1 : 0
-  subnet_id         = var.inside_subnet_id
+  subnet_id         = local.inside_subnet_id
   security_groups   = [aws_security_group.test_vm[0].id]
   source_dest_check = false
   private_ips       = var.test_vm_private_ip != null ? [var.test_vm_private_ip] : null

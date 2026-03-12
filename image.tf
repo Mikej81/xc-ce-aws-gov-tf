@@ -63,6 +63,7 @@ resource "terraform_data" "ami_import" {
     }
     command = <<-SCRIPT
       set -euo pipefail
+      [[ -z "$AWS_PROFILE" ]] && unset AWS_PROFILE
 
       REGION="$AWS_REGION"
       BUCKET="${var.s3_bucket_name}"

@@ -47,17 +47,44 @@ variable "aws_profile" {
 
 variable "vpc_id" {
   type        = string
-  description = "Existing VPC ID"
+  description = "Existing VPC ID. If null, a new VPC is created using vpc_cidr."
+  default     = null
 }
 
 variable "outside_subnet_id" {
   type        = string
-  description = "SLO (outside) subnet ID — needs outbound internet"
+  description = "SLO (outside) subnet ID. If null, a new subnet is created using outside_subnet_cidr."
+  default     = null
 }
 
 variable "inside_subnet_id" {
   type        = string
-  description = "SLI (inside) subnet ID — LAN/workload traffic"
+  description = "SLI (inside) subnet ID. If null, a new subnet is created using inside_subnet_cidr."
+  default     = null
+}
+
+variable "vpc_cidr" {
+  type        = string
+  description = "CIDR block for the VPC (only used when creating a new VPC)"
+  default     = "192.168.0.0/16"
+}
+
+variable "outside_subnet_cidr" {
+  type        = string
+  description = "CIDR for the SLO subnet (only used when creating a new subnet)"
+  default     = "192.168.1.0/24"
+}
+
+variable "inside_subnet_cidr" {
+  type        = string
+  description = "CIDR for the SLI subnet (only used when creating a new subnet)"
+  default     = "192.168.2.0/24"
+}
+
+variable "az" {
+  type        = string
+  description = "Availability zone for new subnets. If null, AWS selects automatically."
+  default     = null
 }
 
 # -----------------------------------------------------------------------------

@@ -14,35 +14,128 @@ locals {
     "ves-io-site-name"                       = local.prefix
     "kubernetes.io/cluster/${local.prefix}"   = "Owned"
   })
+
+  # Resolve to existing or created resources
+  vpc_id            = var.vpc_id != null ? var.vpc_id : aws_vpc.this[0].id
+  outside_subnet_id = var.outside_subnet_id != null ? var.outside_subnet_id : aws_subnet.outside[0].id
+  inside_subnet_id  = var.inside_subnet_id != null ? var.inside_subnet_id : aws_subnet.inside[0].id
 }
 
 # -----------------------------------------------------------------------------
-# Data Sources
+# VPC — use existing or create new
 # -----------------------------------------------------------------------------
 
 data "aws_vpc" "this" {
-  id = var.vpc_id
+  count = var.vpc_id != null ? 1 : 0
+  id    = var.vpc_id
 }
 
+resource "aws_vpc" "this" {
+  count                = var.vpc_id == null ? 1 : 0
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags                 = merge(local.common_tags, { Name = "${local.prefix}-vpc" })
+}
+
+# Internet Gateway — only when creating a new VPC
+resource "aws_internet_gateway" "this" {
+  count  = var.vpc_id == null ? 1 : 0
+  vpc_id = aws_vpc.this[0].id
+  tags   = merge(local.common_tags, { Name = "${local.prefix}-igw" })
+}
+
+# -----------------------------------------------------------------------------
+# Subnets — use existing or create new
+# -----------------------------------------------------------------------------
+
 data "aws_subnet" "outside" {
-  id = var.outside_subnet_id
+  count = var.outside_subnet_id != null ? 1 : 0
+  id    = var.outside_subnet_id
+}
+
+resource "aws_subnet" "outside" {
+  count             = var.outside_subnet_id == null ? 1 : 0
+  vpc_id            = local.vpc_id
+  cidr_block        = var.outside_subnet_cidr
+  availability_zone = var.az
+  tags              = merge(local.common_tags, { Name = "${local.prefix}-slo" })
 }
 
 data "aws_subnet" "inside" {
-  id = var.inside_subnet_id
+  count = var.inside_subnet_id != null ? 1 : 0
+  id    = var.inside_subnet_id
 }
 
+resource "aws_subnet" "inside" {
+  count             = var.inside_subnet_id == null ? 1 : 0
+  vpc_id            = local.vpc_id
+  cidr_block        = var.inside_subnet_cidr
+  availability_zone = var.az
+  tags              = merge(local.common_tags, { Name = "${local.prefix}-sli" })
+}
+
+# -----------------------------------------------------------------------------
+# Route Tables
+#
+# Greenfield (new subnets): create dedicated route tables.
+# Brownfield (existing subnets): add CE default route to existing route table.
+# -----------------------------------------------------------------------------
+
+# --- SLO Route Table (greenfield only) ---
+
+resource "aws_route_table" "slo" {
+  count  = var.outside_subnet_id == null ? 1 : 0
+  vpc_id = local.vpc_id
+  tags   = merge(local.common_tags, { Name = "${local.prefix}-rt-slo" })
+}
+
+resource "aws_route" "slo_default_via_igw" {
+  count                  = var.vpc_id == null ? 1 : 0
+  route_table_id         = aws_route_table.slo[0].id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.this[0].id
+}
+
+resource "aws_route_table_association" "slo" {
+  count          = var.outside_subnet_id == null ? 1 : 0
+  subnet_id      = aws_subnet.outside[0].id
+  route_table_id = aws_route_table.slo[0].id
+}
+
+# --- SLI Route Table ---
+
+# Brownfield: look up existing route table, add CE default route
 data "aws_route_table" "inside" {
+  count     = var.inside_subnet_id != null ? 1 : 0
   subnet_id = var.inside_subnet_id
 }
 
-# Default route on the inside subnet via CE SLI ENI.
-# Required for segment traffic — workloads on the inside subnet need the CE
-# as the next hop for cross-site and on-prem traffic.
 resource "aws_route" "sli_default_via_ce" {
-  route_table_id         = data.aws_route_table.inside.id
+  count                  = var.inside_subnet_id != null ? 1 : 0
+  route_table_id         = data.aws_route_table.inside[0].id
   destination_cidr_block = "0.0.0.0/0"
   network_interface_id   = aws_network_interface.sli.id
+}
+
+# Greenfield: create new route table with CE default route
+resource "aws_route_table" "sli" {
+  count  = var.inside_subnet_id == null ? 1 : 0
+  vpc_id = local.vpc_id
+  tags   = merge(local.common_tags, { Name = "${local.prefix}-rt-sli" })
+}
+
+resource "aws_route" "sli_default_via_ce_new" {
+  count                  = var.inside_subnet_id == null ? 1 : 0
+  route_table_id         = aws_route_table.sli[0].id
+  destination_cidr_block = "0.0.0.0/0"
+  network_interface_id   = aws_network_interface.sli.id
+}
+
+resource "aws_route_table_association" "sli" {
+  count          = var.inside_subnet_id == null ? 1 : 0
+  subnet_id      = aws_subnet.inside[0].id
+  route_table_id = aws_route_table.sli[0].id
 }
 
 # -----------------------------------------------------------------------------
@@ -63,7 +156,7 @@ resource "aws_security_group" "slo" {
   count       = var.slo_security_group_id == null ? 1 : 0
   name        = "${local.prefix}-sg-slo"
   description = "SLO (outside) security group for F5 XC CE"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   # CE-to-CE IPsec — Site Mesh Group (bidirectional)
   ingress {
@@ -114,7 +207,7 @@ resource "aws_security_group" "sli" {
   count       = var.sli_security_group_id == null ? 1 : 0
   name        = "${local.prefix}-sg-sli"
   description = "SLI (inside) security group for F5 XC CE"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   ingress {
     description = "Allow all inbound"
@@ -145,7 +238,7 @@ locals {
 # -----------------------------------------------------------------------------
 
 resource "aws_network_interface" "slo" {
-  subnet_id         = var.outside_subnet_id
+  subnet_id         = local.outside_subnet_id
   security_groups   = [local.slo_sg_id]
   source_dest_check = false
   private_ips       = var.slo_private_ip != null ? [var.slo_private_ip] : null
@@ -154,7 +247,7 @@ resource "aws_network_interface" "slo" {
 }
 
 resource "aws_network_interface" "sli" {
-  subnet_id         = var.inside_subnet_id
+  subnet_id         = local.inside_subnet_id
   security_groups   = [local.sli_sg_id]
   source_dest_check = false
   private_ips       = var.sli_private_ip != null ? [var.sli_private_ip] : null
