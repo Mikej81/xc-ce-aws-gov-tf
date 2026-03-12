@@ -32,6 +32,19 @@ data "aws_subnet" "inside" {
   id = var.inside_subnet_id
 }
 
+data "aws_route_table" "inside" {
+  subnet_id = var.inside_subnet_id
+}
+
+# Default route on the inside subnet via CE SLI ENI.
+# Required for segment traffic — workloads on the inside subnet need the CE
+# as the next hop for cross-site and on-prem traffic.
+resource "aws_route" "sli_default_via_ce" {
+  route_table_id         = data.aws_route_table.inside.id
+  destination_cidr_block = "0.0.0.0/0"
+  network_interface_id   = aws_network_interface.sli.id
+}
+
 # -----------------------------------------------------------------------------
 # SSH Key Pair
 # -----------------------------------------------------------------------------

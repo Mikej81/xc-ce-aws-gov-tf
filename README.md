@@ -264,7 +264,7 @@ All of these are referenced as data sources. `terraform destroy` only removes CE
 
 **Security Groups** -- By default, the template creates lightweight SGs for the SLO and SLI ENIs. In enterprise environments with centrally managed SGs, pass existing SG IDs via `slo_security_group_id` and `sli_security_group_id` to skip SG creation entirely.
 
-**Route Tables** -- Not managed by this template. Configure routes on the SLI subnet externally if you need to route workload traffic through the CE.
+**Route Tables** -- The template adds a default route (`0.0.0.0/0`) on the inside subnet's existing route table, pointing to the CE SLI ENI as the next hop. This is required for segment traffic -- workloads on the inside subnet need the CE as the gateway for cross-site and on-prem traffic over the mesh.
 
 ### Networking Details
 
