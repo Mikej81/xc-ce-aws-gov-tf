@@ -80,4 +80,8 @@ resource "aws_instance" "test_vm" {
   })) : ""
 
   tags = merge(local.common_tags, { Name = "${local.prefix}-test-vm" })
+
+  depends_on = [
+    aws_instance.ce,
+  ]
 }

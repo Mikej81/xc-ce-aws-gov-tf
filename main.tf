@@ -192,6 +192,15 @@ resource "aws_security_group" "slo" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # SSH for management / debugging
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     description = "Allow all outbound"
     from_port   = 0
@@ -327,8 +336,16 @@ resource "aws_instance" "ce" {
   iam_instance_profile = aws_iam_instance_profile.ce.name
   user_data_base64     = base64encode(local.ce_user_data)
 
-  primary_network_interface {
+  # Attach both NICs at launch so VPM sees both interfaces at first boot.
+  # This matches the Azure pattern where network_interface_ids includes SLO + SLI.
+  network_interface {
     network_interface_id = aws_network_interface.slo.id
+    device_index         = 0
+  }
+
+  network_interface {
+    network_interface_id = aws_network_interface.sli.id
+    device_index         = 1
   }
 
   root_block_device {
@@ -345,11 +362,6 @@ resource "aws_instance" "ce" {
 
   depends_on = [
     aws_eip_association.slo,
+    volterra_token.this,
   ]
-}
-
-resource "aws_network_interface_attachment" "sli" {
-  instance_id          = aws_instance.ce.id
-  network_interface_id = aws_network_interface.sli.id
-  device_index         = 1
 }
