@@ -108,6 +108,12 @@ variable "ce_image_download_url" {
   default     = "https://vesio.blob.core.windows.net/releases/rhel/9/x86_64/images/securemeshV2/azure/f5xc-ce-9.2024.44-20250102054713.vhd.gz"
 }
 
+variable "ce_image_file" {
+  type        = string
+  description = "Path to a pre-downloaded CE image file. When set, skips downloading from ce_image_download_url."
+  default     = null
+}
+
 variable "s3_bucket_name" {
   type        = string
   description = "S3 bucket for staging CE image import. Required when using ce_image_download_url."

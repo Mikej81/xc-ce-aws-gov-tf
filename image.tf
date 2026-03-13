@@ -23,8 +23,8 @@ locals {
   disk_format = (
     local._stripped != null
     ? (can(regex("\\.vhd$", local._stripped)) ? "VHD" :
-       can(regex("\\.vmdk$", local._stripped)) ? "VMDK" :
-       can(regex("\\.ova$", local._stripped)) ? "OVA" : "RAW")
+      can(regex("\\.vmdk$", local._stripped)) ? "VMDK" :
+    can(regex("\\.ova$", local._stripped)) ? "OVA" : "RAW")
     : "RAW"
   )
 
@@ -122,30 +122,36 @@ resource "terraform_data" "ami_import" {
         sleep 15
       fi
 
-      WORK_DIR=$(mktemp -d)
-      trap 'rm -rf "$WORK_DIR"' EXIT
+      # Use pre-downloaded image if available, otherwise download
+      CE_IMAGE_FILE="${var.ce_image_file != null ? var.ce_image_file : ""}"
+      if [[ -n "$CE_IMAGE_FILE" && -f "$CE_IMAGE_FILE" ]]; then
+        echo "Using pre-downloaded CE image: $CE_IMAGE_FILE ($(du -h "$CE_IMAGE_FILE" | cut -f1))"
+        RAW_FILE="$CE_IMAGE_FILE"
+      else
+        WORK_DIR=$(mktemp -d)
+        trap 'rm -rf "$WORK_DIR"' EXIT
 
-      echo "Downloading CE image..."
-      curl -fL --progress-bar \
-        -o "$WORK_DIR/$(basename "${var.ce_image_download_url}")" \
-        "${var.ce_image_download_url}"
+        echo "Downloading CE image..."
+        curl -fL --progress-bar \
+          -o "$WORK_DIR/$(basename "${var.ce_image_download_url}")" \
+          "${var.ce_image_download_url}"
 
-      # Decompress / extract
-      if ls "$WORK_DIR"/*.gz 1>/dev/null 2>&1; then
-        echo "Decompressing .gz ..."
-        gunzip "$WORK_DIR/"*.gz
-      fi
-      if ls "$WORK_DIR"/*.tar 1>/dev/null 2>&1; then
-        echo "Extracting .tar ..."
-        cd "$WORK_DIR" && tar xf *.tar && rm -f *.tar && cd -
-      fi
+        # Decompress / extract
+        if ls "$WORK_DIR"/*.gz 1>/dev/null 2>&1; then
+          echo "Decompressing .gz ..."
+          gunzip "$WORK_DIR/"*.gz
+        fi
+        if ls "$WORK_DIR"/*.tar 1>/dev/null 2>&1; then
+          echo "Extracting .tar ..."
+          cd "$WORK_DIR" && tar xf *.tar && rm -f *.tar && cd -
+        fi
 
-      RAW_FILE=$(find "$WORK_DIR" -type f \( -name "*.vhd" -o -name "*.vmdk" -o -name "*.raw" -o -name "*.img" -o -name "*.ova" \) | head -1)
-      if [[ -z "$RAW_FILE" ]]; then
-        # Fallback: largest file in work dir
-        RAW_FILE=$(find "$WORK_DIR" -type f -printf '%s %p\n' | sort -rn | head -1 | awk '{print $2}')
+        RAW_FILE=$(find "$WORK_DIR" -type f \( -name "*.vhd" -o -name "*.vmdk" -o -name "*.raw" -o -name "*.img" -o -name "*.ova" \) | head -1)
+        if [[ -z "$RAW_FILE" ]]; then
+          RAW_FILE=$(find "$WORK_DIR" -type f -printf '%s %p\n' | sort -rn | head -1 | awk '{print $2}')
+        fi
+        echo "Image file: $RAW_FILE ($(du -h "$RAW_FILE" | cut -f1))"
       fi
-      echo "Image file: $RAW_FILE ($(du -h "$RAW_FILE" | cut -f1))"
 
       echo "Uploading to s3://$BUCKET/$S3_KEY ..."
       aws s3 cp "$RAW_FILE" "s3://$BUCKET/$S3_KEY" --region "$REGION"
